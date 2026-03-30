@@ -1,0 +1,3 @@
+time,type,src,dst,detail
+2025-11-12 16:12:18,Suspicious DNS name,10.114.134.215,10.114.134.56,"qname=v10.events.data.microsoft.com..., longest_label=9, labels=5, H=3.84"
+2025-11-12 16:12:18,Suspicious DNS name,10.114.134.56,10.114.134.215,"qname=v10.events.data.microsoft.com..., longest_label=9, labels=5, H=3.84"

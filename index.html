@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Sniffer Web UI — DNS Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b1220;--card:#0f1724;--muted:#94a3b8;--accent:#7c3aed;--danger:#ef4444;--glass:rgba(255,255,255,0.03)}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;color:#e6eef8;background:linear-gradient(180deg,#071025 0%,#071b2e 100%);padding:28px}
+.header{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#2563eb);display:flex;align-items:center;justify-content:center;font-weight:700;color:white}
+h1{margin:0;font-size:20px}
+.container{max-width:1000px;margin:0 auto;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:22px;border-radius:14px;border:1px solid rgba(255,255,255,0.03)}
+.row{display:flex;gap:20px;align-items:flex-start}
+.col{flex:1}
+.upload{padding:18px;border-radius:10px;background:var(--card);border:1px solid rgba(255,255,255,0.02)}
+.upload input{display:none}
+.drop{border:2px dashed rgba(255,255,255,0.03);padding:28px;border-radius:8px;text-align:center;cursor:pointer}
+.btn{display:inline-block;padding:10px 16px;border-radius:8px;background:var(--accent);color:white;border:none;cursor:pointer;font-weight:600}
+.small{color:var(--muted);font-size:13px;margin-top:8px}
+.results{margin-top:18px;max-height:420px;overflow:auto;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02);background:var(--glass)}
+.card{padding:12px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent);margin-bottom:10px;border-left:4px solid var(--danger)}
+.kv{font-size:13px;color:var(--muted)}
+.footer{margin-top:18px;font-size:13px;color:var(--muted)}
+.center{display:flex;gap:10px;align-items:center}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo">NS</div>
+  <div>
+    <h1>Network Sniffer — DNS Analyzer</h1>
+    <div class="small">Upload a PCAP and detect DNS anomalies, port scans, ARP spoofing, and more.</div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <div class="col">
+      <div class="upload">
+        <label class="drop" id="dropArea">
+          <input type="file" id="pcapInput" accept=".pcap,.pcapng" />
+          <div id="dropText">Click or drop a PCAP file here</div>
+          <div class="small">Max file size depends on your browser/server.</div>
+        </label>
+        <div style="margin-top:12px" class="center">
+          <button class="btn" id="analyzeBtn">Analyze</button>
+          <select id="apiUrl" style="margin-left:10px;padding:8px;border-radius:8px;background:#061021;color:#e6eef8;border:1px solid rgba(255,255,255,0.03)">
+            <option value="http://127.0.0.1:5000/analyze">Local API (127.0.0.1:5000)</option>
+            <option value="/analyze">Same origin (/analyze)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="results" id="results">
+        <div class="kv">No analysis yet. Upload a PCAP and click Analyze.</div>
+      </div>
+    </div>
+
+    <div style="width:320px">
+      <div class="upload">
+        <h3 style="margin-top:0">Quick Help</h3>
+        <div class="kv">• Start the API server: <code>python snifferapi.py</code></div>
+        <div class="kv">• If using another host, update API URL above.</div>
+        <div class="kv">• CORS is enabled by default in the API.</div>
+        <div style="height:12px"></div>
+        <h4 style="margin-bottom:6px">Latest alerts sample</h4>
+        <div id="sample" class="kv">-</div>
+      </div>
+      <div style="height:12px"></div>
+      <div class="upload">
+        <h4 style="margin-top:0">Files in bundle</h4>
+        <div class="kv">• sniffer_detector.py</div>
+        <div class="kv">• snifferapi.py</div>
+        <div class="kv">• index.html</div>
+        <div class="kv">• README.md</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Built for demonstration — do not expose to untrusted networks without review.</div>
+</div>
+
+<script>
+const input = document.getElementById('pcapInput');
+const drop = document.getElementById('dropArea');
+const dropText = document.getElementById('dropText');
+let file = null;
+input.addEventListener('change', e=>{ file = e.target.files[0]; dropText.innerText = file.name; });
+drop.addEventListener('dragover', e=>{ e.preventDefault(); drop.style.opacity = '0.9'; });
+drop.addEventListener('dragleave', e=>{ drop.style.opacity = '1'; });
+drop.addEventListener('drop', e=>{ e.preventDefault(); file = e.dataTransfer.files[0]; input.files = e.dataTransfer.files; dropText.innerText = file.name; });
+
+document.getElementById('analyzeBtn').onclick = async ()=>{
+  if(!file){ alert('Choose a pcap first'); return; }
+  const url = document.getElementById('apiUrl').value;
+  const fd = new FormData(); fd.append('file', file);
+  document.getElementById('results').innerHTML = '<div class="kv">Uploading and analyzing…</div>';
+  try{
+    const res = await fetch(url, { method:'POST', body:fd });
+    const json = await res.json();
+    if(json.error){ document.getElementById('results').innerHTML = `<div class="card"><div class="kv">Error: ${json.error}</div></div>`; return; }
+    const alerts = json.alerts || [];
+    if(alerts.length===0){ document.getElementById('results').innerHTML = '<div class="kv">No suspicious activity detected.</div>'; return; }
+    const out = alerts.map(a=>`<div class="card"><div class="kv"><strong>${a.type}</strong></div><div class="kv">Src: ${a.src||'-'}</div><div class="kv">Dst: ${a.dst||'-'}</div><div class="kv">Detail: ${a.detail}</div></div>`).join('');
+    document.getElementById('results').innerHTML = out;
+    document.getElementById('sample').innerText = alerts[0].type + ' — ' + (alerts[0].detail||'');
+  }catch(err){
+    document.getElementById('results').innerHTML = `<div class="card"><div class="kv">Fetch error: ${err.message}</div></div>`;
+  }
+}
+</script>
+</body>
+</html>

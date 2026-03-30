@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DNS Sniffer Web Analyzer</title>
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+    }
+    header {
+        background: #1e293b;
+        padding: 20px;
+        text-align: center;
+        font-size: 24px;
+        font-weight: bold;
+        border-bottom: 2px solid #334155;
+    }
+    .container {
+        max-width: 900px;
+        margin: 40px auto;
+        background: #1e293b;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    }
+    .upload-box {
+        border: 2px dashed #475569;
+        padding: 40px;
+        text-align: center;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .upload-box:hover {
+        background: #334155;
+    }
+    input[type=file] {
+        display: none;
+    }
+    .btn {
+        margin-top: 20px;
+        padding: 12px 24px;
+        font-size: 16px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .btn:hover {
+        background: #2563eb;
+    }
+    .results {
+        margin-top: 30px;
+        padding: 20px;
+        background: #0f172a;
+        border-radius: 10px;
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #334155;
+    }
+    .alert-card {
+        background: #1e293b;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 5px solid #ef4444;
+        margin-bottom: 15px;
+    }
+    .alert-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: #f87171;
+    }
+</style>
+</head>
+<body>
+<header>DNS Analyzer – Web Sniffer UI</header>
+<div class="container">
+    <label class="upload-box" id="uploadBox">
+        <span id="uploadText">Click to upload a PCAP file</span>
+        <input type="file" id="pcapInput" accept=".pcap,.pcapng" />
+    </label>
+    <button class="btn" onclick="uploadPcap()">Analyze</button>
+
+    <div class="results" id="results"></div>
+</div>
+
+<script>
+let selectedFile = null;
+
+// Select file
+pcapInput.onchange = function () {
+    selectedFile = this.files[0];
+    document.getElementById("uploadText").innerText = selectedFile.name;
+};
+
+// Upload + fetch results
+function uploadPcap() {
+    if (!selectedFile) {
+        alert("Please select a pcap file first.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    fetch("http://127.0.0.1:5000/analyze", {
+        method: "POST",
+        body: formData,
+    })
+        .then((res) => res.json())
+        .then((data) => {
+            const container = document.getElementById("results");
+            container.innerHTML = "";
+
+            if (data.error) {
+                container.innerHTML = `<div class='alert-card'><div class='alert-title'>Error</div>${data.error}</div>`;
+                return;
+            }
+
+            if (data.alerts.length === 0) {
+                container.innerHTML = "<div>No suspicious activity detected.</div>";
+                return;
+            }
+
+            data.alerts.forEach((a) => {
+                container.innerHTML += `
+                    <div class='alert-card'>
+                        <div class='alert-title'>${a.type}</div>
+                        <div><strong>Source:</strong> ${a.src || '-'} </div>
+                        <div><strong>Destination:</strong> ${a.dst || '-'} </div>
+                        <div><strong>Detail:</strong> ${a.detail}</div>
+                    </div>`;
+            });
+        })
+        .catch((e) => alert("Error: " + e));
+}
+</script>
+
+</body>
+</html>
